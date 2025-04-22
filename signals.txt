@@ -1,0 +1,65 @@
+Signals in Django are a way that different parts of your app communicate with each other when some events happens. simply means django signals allows certain senders to notify a set of recievers  that certain action has taken place
+
+Questions on Signals
+Ques1:By default are django signals executed synchronously or asynchronously? 
+ Please support your answer with a code snippet that conclusively proves your stance.
+ The code does not need to be elegant and production ready, we just need to understand your logic.
+
+Ans: By default Signals execute synchronously means signal will call the callback function that is reciever function and will wait until the reciever function or we can call it signal handler, to finish its execution whether it takes more time or less it will wait for the signal handler to finish it's execution
+
+For example , Let's create a fake model and whenever an object is created a signal is recieved and reciever prints something then we will add some delay to see if django waits for that much time to see if signals are synchronous or not
+
+i really don't know if i should be making a django app for this or snippets will work? 
+
+code snippet
+#in dango app's models.py file
+from django.db import models
+class Fake(models.Model):
+    name = models.CharField(max_length=100)
+
+
+#create a signal to introduce delay
+# create signals.py
+
+import time
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .models import Fake
+
+@receiver(post_save, sender=Fake)
+def delay_signal(sender, instance, created, **kwargs):
+    if created:
+        print("Signal started — delaying...")
+        time.sleep(7)  # delay introduced
+        print("Signal complete.")
+
+#now we need to connect signal . Make sure your app connects the signal when it’s ready.
+# in apps.py
+
+from django.apps import AppConfig
+
+class MyAppConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'myapp'
+
+    def ready(self):
+        import myapp.signals  # to run signals.py 
+
+so noww when you create an object of Fake in django shell or by registering Fake model in admin pannel, in console first line will be printed as soon as the object is created and their will be some delay before printing the next line which shows the reciever fuction executes completely .
+if i create two objects together then first oject will  be created, delay introduce when signal will be send to reciever function for it and after the execution end signal for 2nd oject will be send n same process happens
+
+Ques2: Do django signals run in the same thread as the caller? Please support your answer with a code snippet that conclusively proves your stance. The code does not need to be elegant and production ready, we just need to understand your logic.
+
+Ans: yes The reciever function executes in the same thread it is triggered. it will block the current thread until the execution of the reciever function is finished
+For example, Let's use the same Fake Model for explaination and modify the signal to print the thread id like this
+
+import threading #include this for accessing id of thread
+@receiver(post_save, sender=Fake)
+def delay_signal(sender, instance, created, **kwargs):
+    if created:
+        print(f"Signal started — delaying...in thread {threading.get_ident()}")#to print the thread id
+        time.sleep(7)  # delay introduced
+        print(f"Signal complete.in thread {threading.get_ident()}")#to compare and see the thread id is same as current or not
+
+if id printed both time is same that points out that django signals do run in the same thread the execution is completed means that thread is blocked until the end
+now to prove that it runs in the same thread as the caller you  print thread id before creating object to see current thread id  and compare it with the thread id when reciever function is being executed to prove the point
